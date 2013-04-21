@@ -6,7 +6,7 @@ namespace teststl
 	{
 	private:
 		// container to hold actual contents
-		// we need to keep this separate to get CoW semantics working
+		// we need to keep this separate to get COW semantics working
 		struct storage {
 			int ref;
 			T* arr;
@@ -20,8 +20,11 @@ namespace teststl
 		// length of the array
 		int length;
 
-		// max size of allocated elements as of now
+		// max size of allocated elements as of now (not used as of now)
 		int size;
+
+		// last index - for push_back
+		int last;
 
 	public:
 		/* 
@@ -29,11 +32,15 @@ namespace teststl
 		*/
 
 		// allocate memory
-		void allocvec(int len) {
+		void allocvec(int length) {
+			// length is already done
 			stor = new storage;
 			stor->ref = 1;
-			stor->arr = new T[len];
+			if (length) {
+				stor->arr = new T[length];
+			}
 			direct_access = stor->arr;
+			last = 0;
 		}
 
 		// default constructor
@@ -42,14 +49,14 @@ namespace teststl
 		}
 
 		// explicit int constructor
-		tvector(int len) : length(len) {
-			allocvec(len);
+		tvector(int length) : length(length) {
+			allocvec(length);
 		}
 
 		// length, value constructor
-		tvector(int len, int val) : length(len) {
-			allocvec(len);
-			for (int i = 0; i < len; i++) {
+		tvector(int length, int val) : length(length) {
+			allocvec(length);
+			for (int i = 0; i < length; i++) {
 				direct_access[i] = val;
 			}
 		}
@@ -57,9 +64,14 @@ namespace teststl
 		// generic COW function
 		void copy(const tvector<T>& other) {
 			size = other.size;
-			len = other.len;
+			length = other.length;
 			stor = other.stor;
 			stor->ref++;
+			last = other.last;
+		}
+
+		void grow() {
+			
 		}
 
 		// copy constructor: this has to be smart to do COW
@@ -86,6 +98,7 @@ namespace teststl
 			return val(i);
 		}
 		
+		// deref operator
 		T& operator[](int i) {
 			// make copy
 			return val(i);
@@ -101,15 +114,23 @@ namespace teststl
 			return length;
 		}
 
-		// pop back - this will modift array
+		// pop back - this will modify array
 		T& pop_back() {
 			// Now we need to make a copy for ourselves first
-			return direct_access[--length];
+			if (last == 0) {
+				return NULL;
+			}
+			return direct_access[--last];
 		}
 
 		// push back - this will modify array
 		void push_back(const T& val) {
-
+			if (length == last) {
+				// allocate more (double of last size)
+				grow();
+			}
+			// length should now be more than last
+			direct_access[last++] = val;
 		}
 
 		// assignment operator
